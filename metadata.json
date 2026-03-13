@@ -1,0 +1,5 @@
+{
+  "name": "Psychsense",
+  "description": "AI-Powered Depression Detection System prototype featuring text, voice, and video analysis interfaces.",
+  "requestFramePermissions": ["camera", "microphone"]
+}

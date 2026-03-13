@@ -1,20 +1,41 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# PsychSense
 
-# Run and deploy your AI Studio app
+**AI-Powered Multi-Modal Depression Detection System**
 
-This contains everything you need to run your app locally.
+PsychSense is an AI-based screening system that analyzes emotional signals using three modalities:
 
-View your app in AI Studio: https://ai.studio/apps/aca577db-3dc8-4fcc-b926-43efd903577d
+* 📝 **Text Analysis** – Detects emotional sentiment from user-written input
+* 🎙 **Voice Analysis** – Analyzes vocal tone and speech patterns
+* 📋 **Screening Questionnaire** – Structured mental health assessment
 
-## Run Locally
+The system combines insights from these inputs to estimate depression risk and provide explainable AI insights.
 
-**Prerequisites:**  Node.js
+## Features
 
+* Step-by-step mental health screening workflow
+* Multi-modal AI analysis
+* Explainable results dashboard
+* Modern UI with 3D neural head visualization
+* Mental health questionnaire module
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Tech Stack
+
+* React + TypeScript
+* Vite
+* Three.js (3D neural head visualization)
+* AI Studio (vibe coding)
+
+## Repository Structure
+
+```
+src/
+components/
+services/
+index.html
+package.json
+```
+
+## Disclaimer
+
+This tool is intended for **early screening only** and is **not a clinical diagnosis**.
+Users should consult a qualified mental health professional for medical advice.

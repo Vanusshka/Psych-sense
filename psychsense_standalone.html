@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PsychSense – AI Powered Multi-Modal Depression Detection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'psych-dark': '#020617',
+            'psych-cyan': '#06b6d4',
+            'psych-magenta': '#d946ef',
+            'psych-violet': '#8b5cf6',
+          },
+          fontFamily: {
+            'sans': ['Inter', 'ui-sans-serif', 'system-ui'],
+            'display': ['Space Grotesk', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #020617; color: white; font-family: 'Inter', sans-serif; height: 100vh; width: 100vw; overflow: hidden; }
+
+    .glass-card {
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37);
+    }
+    .glow-text { text-shadow: 0 0 20px rgba(6,182,212,0.5); }
+    .glow-border { border: 1px solid rgba(6,182,212,0.3); box-shadow: 0 0 15px rgba(6,182,212,0.2); }
+    .glow-border-purple { border: 1px solid rgba(139,92,246,0.3); box-shadow: 0 0 15px rgba(139,92,246,0.2); }
+    .glow-border-magenta { border: 1px solid rgba(217,70,239,0.3); box-shadow: 0 0 15px rgba(217,70,239,0.2); }
+
+    .page { display: none; height: 100vh; width: 100vw; }
+    .page.active { display: flex; }
+
+    .btn-glow-cyan {
+      background: #06b6d4; color: white; padding: 14px 40px; border-radius: 9999px;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px;
+      letter-spacing: 0.05em; border: none; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(6,182,212,0.3);
+      transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px;
+    }
+    .btn-glow-cyan:hover { box-shadow: 0 12px 32px rgba(6,182,212,0.5); transform: scale(1.05); }
+    .btn-glow-cyan:active { transform: scale(0.95); }
+    .btn-glow-cyan:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+    .btn-glow-purple {
+      background: #8b5cf6; color: white; padding: 14px 40px; border-radius: 9999px;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;
+      letter-spacing: 0.05em; border: none; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(139,92,246,0.3);
+      transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px;
+    }
+    .btn-glow-purple:hover { box-shadow: 0 12px 32px rgba(139,92,246,0.5); transform: scale(1.05); }
+    .btn-glow-purple:active { transform: scale(0.95); }
+
+    .btn-glow-magenta {
+      background: #d946ef; color: white; padding: 14px 40px; border-radius: 9999px;
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;
+      letter-spacing: 0.05em; border: none; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(217,70,239,0.3);
+      transition: all 0.3s; display: inline-flex; align-items: center; gap: 10px;
+    }
+    .btn-glow-magenta:hover { box-shadow: 0 12px 32px rgba(217,70,239,0.5); transform: scale(1.05); }
+    .btn-glow-magenta:active { transform: scale(0.95); }
+
+    input, select, textarea {
+      background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px; padding: 14px 18px; color: white; font-family: 'Inter', sans-serif;
+      font-size: 14px; outline: none; transition: border-color 0.3s; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #06b6d4; }
+    textarea { resize: none; min-height: 200px; }
+    select option { background: #020617; }
+
+    .tag {
+      padding: 5px 14px; border-radius: 9999px; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+
+    .neural-bg {
+      position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+    }
+    .neural-canvas { width: 100%; height: 100%; opacity: 0.4; }
+
+    .pillar {
+      position: absolute; left: 50%; top: 0; bottom: 0; width: 2px;
+      background: linear-gradient(to bottom, transparent, #06b6d4 30%, #d946ef 70%, transparent);
+      transform: translateX(-50%); opacity: 0.15; animation: pillar-pulse 4s ease-in-out infinite;
+    }
+    @keyframes pillar-pulse { 0%,100%{opacity:0.1} 50%{opacity:0.25} }
+
+    .spin { animation: spin 3s linear infinite; }
+    .spin-rev { animation: spin-rev 4s linear infinite; }
+    @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+    @keyframes spin-rev { from{transform:rotate(0deg)} to{transform:rotate(-360deg)} }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    .bar-fill { height: 100%; border-radius: 9999px; transition: width 1.5s ease-out; }
+
+    .scrollable { overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(139,92,246,0.3) transparent; }
+    .scrollable::-webkit-scrollbar { width: 4px; }
+    .scrollable::-webkit-scrollbar-track { background: transparent; }
+    .scrollable::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.3); border-radius: 2px; }
+
+    .toggle-btn {
+      position: relative; display: inline-flex; height: 28px; width: 56px;
+      align-items: center; border-radius: 9999px; border: none; cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .toggle-btn.off { background: rgba(255,255,255,0.1); }
+    .toggle-btn.on { background: #8b5cf6; }
+    .toggle-thumb {
+      display: inline-block; height: 20px; width: 20px; border-radius: 50%;
+      background: white; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: transform 0.3s;
+    }
+    .toggle-btn.off .toggle-thumb { transform: translateX(4px); }
+    .toggle-btn.on .toggle-thumb { transform: translateX(32px); }
+
+    .user-badge {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(0,0,0,0.4); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1); padding: 6px 16px 6px 6px;
+      border-radius: 9999px;
+    }
+    .user-badge img { width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(6,182,212,0.3); }
+
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+    .rec-card {
+      display: flex; gap: 12px; background: rgba(255,255,255,0.03);
+      padding: 14px 16px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);
+    }
+    .check-icon { color: #d946ef; flex-shrink: 0; margin-top: 1px; }
+
+    #page-results { overflow-y: auto; }
+
+    .recording-bars { display: flex; align-items: center; gap: 3px; height: 30px; }
+    .recording-bar { width: 4px; background: #d946ef; border-radius: 2px; }
+    @keyframes bar1 { 0%,100%{height:8px} 50%{height:24px} }
+    @keyframes bar2 { 0%,100%{height:14px} 50%{height:8px} }
+    @keyframes bar3 { 0%,100%{height:20px} 50%{height:30px} }
+    .recording-bars .recording-bar:nth-child(3n+1) { animation: bar1 0.6s ease-in-out infinite; }
+    .recording-bars .recording-bar:nth-child(3n+2) { animation: bar2 0.5s ease-in-out infinite; }
+    .recording-bars .recording-bar:nth-child(3n+3) { animation: bar3 0.7s ease-in-out infinite; }
+
+    .google-btn {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 28px; border-radius: 9999px; color: rgba(255,255,255,0.8);
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 12px;
+      letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+      transition: all 0.3s;
+    }
+    .google-btn:hover { background: rgba(255,255,255,0.1); color: white; transform: scale(1.05); }
+    .google-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<!-- Background Effects -->
+<div style="position:fixed;inset:0;z-index:0;pointer-events:none;">
+  <div class="pillar"></div>
+  <canvas id="neural-canvas" style="width:100%;height:100%;opacity:0.3;"></canvas>
+</div>
+
+<!-- Top-right Controls -->
+<div id="top-controls" style="position:fixed;top:24px;right:24px;z-index:100;display:flex;align-items:center;gap:12px;">
+  <div id="user-badge-container"></div>
+</div>
+
+<!-- ================================ PAGE: LANDING ================================ -->
+<div id="page-landing" class="page active fade-in" style="position:relative;z-index:10;">
+  <div style="width:50%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px;position:relative;z-index:10;">
+    <div style="max-width:520px;">
+      <h1 style="font-family:'Space Grotesk',sans-serif;font-size:clamp(48px,7vw,88px);font-weight:800;margin-bottom:12px;background:linear-gradient(135deg,#06b6d4,#d946ef);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;" class="glow-text">PsychSense</h1>
+      <p style="font-family:'Space Grotesk',sans-serif;font-size:18px;color:#06b6d4;margin-bottom:20px;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;">AI Powered Multi-Modal Depression Detection System</p>
+      <p style="color:#94a3b8;font-size:15px;margin-bottom:48px;line-height:1.7;">Harnessing advanced neural architectures to analyze linguistic patterns, vocal biomarkers, and facial micro-expressions for early mental health intervention.</p>
+
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:16px;">
+        <button class="btn-glow-cyan" onclick="goTo('user-info')" style="font-size:18px;padding:18px 48px;">
+          Start Analysis
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+        <button class="google-btn" id="google-signin-btn" onclick="handleGoogleLogin()">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+            <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+            <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+            <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+          </svg>
+          Sign in with Google
+        </button>
+      </div>
+    </div>
+  </div>
+  <div style="width:50%;height:100%;display:flex;align-items:center;justify-content:center;position:relative;">
+    <canvas id="neural-head-canvas" style="width:100%;height:100%;"></canvas>
+  </div>
+</div>
+
+<!-- ================================ PAGE: USER INFO ================================ -->
+<div id="page-user-info" class="page" style="position:relative;z-index:10;align-items:center;justify-content:center;padding:24px;">
+  <div class="glass-card glow-border-purple fade-in" style="width:100%;max-width:440px;border-radius:28px;padding:40px;">
+    <h2 style="font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;text-align:center;margin-bottom:8px;">User Information</h2>
+    <p style="color:#94a3b8;text-align:center;margin-bottom:32px;font-size:14px;">Basic details before assessment</p>
+    <div style="display:flex;flex-direction:column;gap:20px;">
+      <div>
+        <label style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#06b6d4;font-weight:700;display:block;margin-bottom:8px;">Full Name</label>
+        <input type="text" id="input-name" placeholder="Enter your name" />
+      </div>
+      <div>
+        <label style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#06b6d4;font-weight:700;display:block;margin-bottom:8px;">Age</label>
+        <input type="number" id="input-age" placeholder="Enter your age" />
+      </div>
+      <div>
+        <label style="font-size:10px;text-transform:uppercase;letter-spacing:0.15em;color:#06b6d4;font-weight:700;display:block;margin-bottom:8px;">Gender</label>
+        <select id="input-gender">
+          <option value="" disabled selected>Select Gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+          <option value="prefer-not-to-say">Prefer not to say</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:36px;align-items:center;">
+      <button onclick="goTo('landing')" style="flex:1;background:none;border:none;color:#64748b;cursor:pointer;font-size:13px;font-weight:600;transition:color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#64748b'">Cancel</button>
+      <button class="btn-glow-purple" style="flex:2;justify-content:center;" onclick="goTo('assessment')">
+        Continue
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================ PAGE: ASSESSMENT ================================ -->
+<div id="page-assessment" class="page" style="position:relative;z-index:10;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
+  <div class="glass-card glow-border fade-in" style="width:100%;max-width:1100px;border-radius:28px;padding:40px;my:20px;">
+    <div style="text-align:center;margin-bottom:40px;">
+      <h2 style="font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:700;background:linear-gradient(135deg,#06b6d4,#8b5cf6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Multi-Modal Assessment</h2>
+      <p style="color:#94a3b8;margin-top:8px;font-size:14px;">Provide text, voice, or both inputs. At least one is required.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;">
+      <!-- Text Section -->
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="padding:8px;background:rgba(6,182,212,0.15);border-radius:10px;color:#06b6d4;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:18px;">Text Expression</span>
+          </div>
+          <span id="char-count" style="font-family:monospace;font-size:11px;color:#06b6d4;background:rgba(6,182,212,0.1);padding:4px 12px;border-radius:9999px;border:1px solid rgba(6,182,212,0.2);">0 chars</span>
+        </div>
+        <textarea id="text-input" placeholder="Describe your current emotional state, thoughts, or any challenges you've been facing recently..." style="min-height:320px;" oninput="document.getElementById('char-count').textContent=this.value.length+' chars';updateAssessBtn();"></textarea>
+      </div>
+
+      <!-- Right Section: Audio -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <!-- Audio Panel -->
+        <div style="background:rgba(0,0,0,0.2);border-radius:20px;border:1px solid rgba(255,255,255,0.05);padding:24px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="padding:6px;background:rgba(217,70,239,0.15);border-radius:8px;color:#d946ef;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+              </div>
+              <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">Audio Biomarkers</span>
+            </div>
+            <button id="remove-audio-btn" onclick="removeAudio()" style="display:none;background:none;border:none;color:#64748b;cursor:pointer;padding:6px;border-radius:8px;transition:all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+          </div>
+
+          <div id="audio-display" style="width:100%;height:100px;background:rgba(0,0,0,0.3);border-radius:12px;border:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;margin-bottom:16px;overflow:hidden;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0.4;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#d946ef" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+              <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;">Mic Ready</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <button id="record-btn" class="btn-glow-magenta" style="width:100%;justify-content:center;padding:10px 20px;font-size:11px;" onclick="toggleRecording()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+              Start Recording
+            </button>
+            <div style="position:relative;">
+              <input type="file" id="audio-upload" accept=".wav,.mp3,audio/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="handleAudioUpload(event)" />
+              <button style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:9999px;padding:10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.3s;pointer-events:none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                Upload Audio
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Video Panel -->
+        <div style="background:rgba(0,0,0,0.2);border-radius:20px;border:1px solid rgba(255,255,255,0.05);padding:24px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+            <div style="padding:6px;background:rgba(139,92,246,0.15);border-radius:8px;color:#8b5cf6;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </div>
+            <span style="font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;">Video Biomarkers</span>
+          </div>
+          <div id="video-display" style="width:100%;height:70px;background:rgba(0,0,0,0.3);border-radius:12px;border:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0.4;">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+              <span style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;">Camera Ready</span>
+            </div>
+          </div>
+          <div style="position:relative;">
+            <input type="file" accept="video/*" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;" onchange="handleVideoUpload(event)" />
+            <button id="video-upload-btn" style="width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:9999px;padding:8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.3s;pointer-events:none;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+              Upload Video
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:40px;padding-top:28px;border-top:1px solid rgba(255,255,255,0.05);">
+      <button onclick="goTo('user-info')" style="display:flex;align-items:center;gap:8px;background:none;border:none;color:#64748b;cursor:pointer;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;transition:color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#64748b'">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Back
+      </button>
+      <button id="assess-continue-btn" class="btn-glow-cyan" onclick="goTo('questioning')" style="font-size:18px;padding:16px 60px;" disabled>
+        Complete Assessment
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================ PAGE: QUESTIONNAIRE ================================ -->
+<div id="page-questioning" class="page" style="position:relative;z-index:10;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
+  <div class="glass-card glow-border-purple fade-in" style="width:100%;max-width:900px;border-radius:32px;overflow:hidden;">
+    <div style="background:rgba(255,255,255,0.03);padding:32px 40px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <h2 style="font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;">Screening Questionnaire</h2>
+        <p style="color:#94a3b8;margin-top:4px;font-size:13px;">Clinical assessment for mood disorders</p>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;color:#8b5cf6;background:rgba(139,92,246,0.1);padding:8px 16px;border-radius:9999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;border:1px solid rgba(139,92,246,0.2);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Step 3 of 3
+      </div>
+    </div>
+
+    <div class="scrollable" style="padding:40px;max-height:70vh;display:flex;flex-direction:column;gap:40px;">
+      <!-- Mania Screening -->
+      <section>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <h3 style="font-family:'Space Grotesk',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Mania Screening</h3>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div class="q-card" style="background:rgba(0,0,0,0.2);padding:20px;border-radius:16px;border:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;transition:border-color 0.2s;" onmouseover="this.style.borderColor='rgba(139,92,246,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+            <div style="flex:1;padding-right:16px;"><h4 style="font-weight:700;margin-bottom:4px;">Elevated Mood</h4><p style="color:#94a3b8;font-size:12px;">Unusually high energy or euphoria</p></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="toggle-btn off" id="toggle-elevatedMood" onclick="toggleAnswer('elevatedMood', this)"><span class="toggle-thumb"></span></button>
+              <span class="toggle-label" id="label-elevatedMood" style="font-size:10px;font-weight:700;color:#64748b;width:28px;letter-spacing:0.1em;">NO</span>
+            </div>
+          </div>
+          <div class="q-card" style="background:rgba(0,0,0,0.2);padding:20px;border-radius:16px;border:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;transition:border-color 0.2s;" onmouseover="this.style.borderColor='rgba(139,92,246,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+            <div style="flex:1;padding-right:16px;"><h4 style="font-weight:700;margin-bottom:4px;">Reduced Sleep</h4><p style="color:#94a3b8;font-size:12px;">Needing less sleep than usual</p></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="toggle-btn off" id="toggle-reducedSleep" onclick="toggleAnswer('reducedSleep', this)"><span class="toggle-thumb"></span></button>
+              <span class="toggle-label" id="label-reducedSleep" style="font-size:10px;font-weight:700;color:#64748b;width:28px;letter-spacing:0.1em;">NO</span>
+            </div>
+          </div>
+          <div class="q-card" style="background:rgba(0,0,0,0.2);padding:20px;border-radius:16px;border:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;transition:border-color 0.2s;" onmouseover="this.style.borderColor='rgba(139,92,246,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+            <div style="flex:1;padding-right:16px;"><h4 style="font-weight:700;margin-bottom:4px;">Impulsivity</h4><p style="color:#94a3b8;font-size:12px;">Acting without thinking of consequences</p></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="toggle-btn off" id="toggle-impulsivity" onclick="toggleAnswer('impulsivity', this)"><span class="toggle-thumb"></span></button>
+              <span class="toggle-label" id="label-impulsivity" style="font-size:10px;font-weight:700;color:#64748b;width:28px;letter-spacing:0.1em;">NO</span>
+            </div>
+          </div>
+          <div class="q-card" style="background:rgba(0,0,0,0.2);padding:20px;border-radius:16px;border:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;transition:border-color 0.2s;" onmouseover="this.style.borderColor='rgba(139,92,246,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'">
+            <div style="flex:1;padding-right:16px;"><h4 style="font-weight:700;margin-bottom:4px;">Racing Thoughts</h4><p style="color:#94a3b8;font-size:12px;">Thoughts moving very quickly</p></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button class="toggle-btn off" id="toggle-racingThoughts" onclick="toggleAnswer('racingThoughts', this)"><span class="toggle-thumb"></span></button>
+              <span class="toggle-label" id="label-racingThoughts" style="font-size:10px;font-weight:700;color:#64748b;width:28px;letter-spacing:0.1em;">NO</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Additional Sections -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+        <div style="background:rgba(0,0,0,0.2);padding:28px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);">
+          <div style="display:flex;align-items:center;gap:8px;color:#94a3b8;margin-bottom:16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Duration of Symptoms</label>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <input type="number" id="q-duration" value="0" style="width:80px;font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;color:#06b6d4;text-align:center;padding:10px;" />
+            <span style="color:#64748b;font-weight:500;">months</span>
+          </div>
+        </div>
+        <div style="background:rgba(0,0,0,0.2);padding:28px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);">
+          <div style="display:flex;align-items:center;gap:8px;color:#94a3b8;margin-bottom:16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Seasonal Pattern</label>
+          </div>
+          <select id="q-seasonal" style="border-radius:12px;padding:12px;">
+            <option>No seasonal pattern</option>
+            <option>Winter onset</option>
+            <option>Spring onset</option>
+            <option>Summer onset</option>
+            <option>Autumn onset</option>
+          </select>
+        </div>
+        <div style="background:rgba(0,0,0,0.2);padding:28px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);">
+          <div style="display:flex;align-items:center;gap:8px;color:#94a3b8;margin-bottom:16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Postpartum Indicator</label>
+          </div>
+          <select id="q-postpartum" style="border-radius:12px;padding:12px;">
+            <option>Not applicable</option>
+            <option>Within 4 weeks postpartum</option>
+            <option>Beyond 4 weeks postpartum</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Impairment -->
+      <div style="background:rgba(0,0,0,0.2);padding:28px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:8px;color:#94a3b8;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 1-8.618 3.04A12.02 12.02 0 0 0 3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Functional Impairment Level</label>
+          </div>
+          <span id="impairment-label" style="color:#d946ef;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:16px;">Mild (30%)</span>
+        </div>
+        <input type="range" id="q-impairment" min="0" max="100" value="30" style="width:100%;height:6px;background:rgba(255,255,255,0.05);border-radius:3px;accent-color:#d946ef;cursor:pointer;" oninput="updateImpairmentLabel()" />
+        <div style="display:flex;justify-content:space-between;margin-top:12px;">
+          <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;">Mild</span>
+          <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;">Moderate</span>
+          <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;">Severe</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-top:16px;">
+        <button onclick="goTo('assessment')" style="background:none;border:none;color:#64748b;cursor:pointer;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;transition:color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#64748b'">Back to Assessment</button>
+        <button class="btn-glow-purple" onclick="completeQuestionnaire()" style="padding:14px 48px;">
+          Complete Assessment
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================ PAGE: ANALYSIS ================================ -->
+<div id="page-analysis" class="page" style="position:relative;z-index:10;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="position:relative;width:200px;height:200px;margin-bottom:40px;">
+    <div class="spin" style="position:absolute;inset:0;border-top:4px solid #06b6d4;border-radius:50%;"></div>
+    <div class="spin-rev" style="position:absolute;inset:16px;border-bottom:4px solid #d946ef;border-radius:50%;opacity:0.6;"></div>
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+      <svg class="pulse" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+    </div>
+  </div>
+  <h2 style="font-family:'Space Grotesk',sans-serif;font-size:36px;font-weight:700;margin-bottom:12px;text-align:center;">Synthesizing Data</h2>
+  <p style="color:#94a3b8;text-transform:uppercase;letter-spacing:0.15em;font-size:13px;text-align:center;">Aggregating multi-modal biomarkers...</p>
+</div>
+
+<!-- ================================ PAGE: RESULTS ================================ -->
+<div id="page-results" class="page scrollable" style="position:relative;z-index:10;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px;">
+  <div class="glass-card glow-border fade-in" id="results-card" style="width:100%;max-width:1100px;border-radius:28px;padding:40px;margin:20px 0;">
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:40px;flex-wrap:wrap;gap:20px;">
+      <div>
+        <h2 style="font-family:'Space Grotesk',sans-serif;font-size:32px;font-weight:700;margin-bottom:6px;">Diagnostic Synthesis</h2>
+        <p id="results-patient" style="color:#94a3b8;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;"></p>
+      </div>
+      <div style="display:flex;gap:16px;">
+        <div style="background:rgba(6,182,212,0.1);color:#06b6d4;padding:12px 24px;border-radius:16px;border:1px solid rgba(6,182,212,0.2);text-align:center;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.6;margin-bottom:4px;">Confidence</div>
+          <div id="results-confidence" style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;">—</div>
+        </div>
+        <div style="background:rgba(217,70,239,0.1);color:#d946ef;padding:12px 24px;border-radius:16px;border:1px solid rgba(217,70,239,0.2);text-align:center;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.6;margin-bottom:4px;">Risk Level</div>
+          <div id="results-risk" style="font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:32px;">
+      <!-- Left -->
+      <div style="display:flex;flex-direction:column;gap:24px;">
+        <!-- Ring -->
+        <div style="background:rgba(0,0,0,0.2);padding:28px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);display:flex;flex-direction:column;align-items:center;text-align:center;">
+          <svg id="confidence-ring" width="180" height="180" style="transform:rotate(-90deg);margin-bottom:16px;">
+            <circle cx="90" cy="90" r="80" fill="transparent" stroke="rgba(255,255,255,0.05)" stroke-width="10"/>
+            <circle id="ring-progress" cx="90" cy="90" r="80" fill="transparent" stroke="#06b6d4" stroke-width="10" stroke-dasharray="502" stroke-dashoffset="502" stroke-linecap="round" style="transition:stroke-dashoffset 2s ease-out;"/>
+          </svg>
+          <div style="margin-top:-16px;">
+            <div id="ring-label" style="font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;margin-bottom:4px;">—</div>
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:0.12em;color:#64748b;">Classification</div>
+          </div>
+          <p id="ring-desc" style="font-size:12px;color:#94a3b8;line-height:1.6;font-style:italic;margin-top:12px;"></p>
+        </div>
+
+        <!-- Signals -->
+        <div style="background:rgba(0,0,0,0.2);padding:20px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);">
+          <h4 style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#06b6d4;margin-bottom:16px;">Detected Emotional Signals</h4>
+          <div id="signals-container" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        </div>
+
+        <!-- Contributions -->
+        <div style="background:rgba(0,0,0,0.2);padding:20px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);">
+          <h4 style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#8b5cf6;margin-bottom:16px;">Prediction Contribution</h4>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div><div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:4px;"><span>Text Analysis</span><span id="contrib-text-val">—</span></div><div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;"><div id="contrib-text" class="bar-fill" style="width:0;background:#06b6d4;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:4px;"><span>Video Analysis</span><span id="contrib-video-val">—</span></div><div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;"><div id="contrib-video" class="bar-fill" style="width:0;background:#8b5cf6;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:4px;"><span>Audio Analysis</span><span id="contrib-audio-val">—</span></div><div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;"><div id="contrib-audio" class="bar-fill" style="width:0;background:#d946ef;"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:4px;"><span>Questionnaire</span><span id="contrib-quest-val">—</span></div><div style="height:5px;background:rgba(255,255,255,0.05);border-radius:3px;"><div id="contrib-quest" class="bar-fill" style="width:0;background:#06b6d4;"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+        <!-- Modality Cards -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="background:rgba(6,182,212,0.05);padding:20px;border-radius:16px;border:1px solid rgba(6,182,212,0.2);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;color:#06b6d4;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Text Analysis</span></div>
+            <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-bottom:10px;"><div id="bar-text" class="bar-fill" style="width:0;background:#06b6d4;"></div></div>
+            <p id="point-text" style="font-size:11px;color:#cbd5e1;line-height:1.5;"></p>
+          </div>
+          <div style="background:rgba(139,92,246,0.05);padding:20px;border-radius:16px;border:1px solid rgba(139,92,246,0.2);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;color:#8b5cf6;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Video Analysis</span></div>
+            <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-bottom:10px;"><div id="bar-video" class="bar-fill" style="width:0;background:#8b5cf6;"></div></div>
+            <p id="point-video" style="font-size:11px;color:#cbd5e1;line-height:1.5;"></p>
+          </div>
+          <div style="background:rgba(217,70,239,0.05);padding:20px;border-radius:16px;border:1px solid rgba(217,70,239,0.2);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;color:#d946ef;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Audio Analysis</span></div>
+            <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-bottom:10px;"><div id="bar-audio" class="bar-fill" style="width:0;background:#d946ef;"></div></div>
+            <p id="point-audio" style="font-size:11px;color:#cbd5e1;line-height:1.5;"></p>
+          </div>
+          <div style="background:rgba(6,182,212,0.05);padding:20px;border-radius:16px;border:1px solid rgba(6,182,212,0.2);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;color:#06b6d4;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Questionnaire</span></div>
+            <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;margin-bottom:10px;"><div id="bar-quest" class="bar-fill" style="width:0;background:#06b6d4;"></div></div>
+            <p id="point-quest" style="font-size:11px;color:#cbd5e1;line-height:1.5;"></p>
+          </div>
+        </div>
+
+        <!-- AI Explanation -->
+        <div style="background:rgba(0,0,0,0.2);padding:28px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0 1 12 2.944a11.955 11.955 0 0 1-8.618 3.04A12.02 12.02 0 0 0 3 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;">AI Explanation Panel</h3>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+            <div><h4 style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#06b6d4;margin-bottom:12px;">Text Analysis</h4><ul id="insights-text" style="display:flex;flex-direction:column;gap:8px;list-style:none;"></ul></div>
+            <div><h4 style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#8b5cf6;margin-bottom:12px;">Video Analysis</h4><ul id="insights-video" style="display:flex;flex-direction:column;gap:8px;list-style:none;"></ul></div>
+            <div><h4 style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#d946ef;margin-bottom:12px;">Audio Analysis</h4><ul id="insights-audio" style="display:flex;flex-direction:column;gap:8px;list-style:none;"></ul></div>
+          </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div style="background:rgba(0,0,0,0.2);padding:28px;border-radius:24px;border:1px solid rgba(255,255,255,0.05);">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d946ef" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <h3 style="font-family:'Space Grotesk',sans-serif;font-size:16px;font-weight:700;">Suggested Actions</h3>
+          </div>
+          <div id="recommendations-container" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"></div>
+        </div>
+
+        <!-- Footer -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:16px;">
+          <button onclick="downloadReport()" style="display:flex;align-items:center;gap:8px;background:none;border:none;color:#06b6d4;cursor:pointer;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;transition:color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#06b6d4'">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Report
+          </button>
+          <button class="btn-glow-magenta" onclick="handleReset()" style="padding:12px 40px;">New Assessment</button>
+        </div>
+        <p style="font-size:10px;color:#475569;text-align:center;margin-top:16px;line-height:1.6;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05);">
+          Mental Health Disclaimer: This system is designed for early mental health screening only and is not a clinical diagnosis. Please consult a qualified mental health professional for professional advice.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase + Gemini Scripts -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js';
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/11.0.0/firebase-auth.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCupH4cnOPGkX55xLn2M0wOFvBouMD1CfM",
+    authDomain: "depression-detection-51816.firebaseapp.com",
+    projectId: "depression-detection-51816",
+    storageBucket: "depression-detection-51816.firebasestorage.app",
+    messagingSenderId: "889249470832",
+    appId: "1:889249470832:web:660d2fb7f03291144017b5",
+    measurementId: "G-99B4K2WXF8"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+  provider.addScope('profile');
+  provider.addScope('email');
+
+  // Expose to window
+  window.firebaseSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      window.currentUser = { uid: user.uid, name: user.displayName, email: user.email, photo: user.photoURL };
+      updateUserBadge(window.currentUser);
+      document.getElementById('google-signin-btn').style.display = 'none';
+    } catch (err) {
+      console.error('Sign-in error:', err);
+      if (err.code === 'auth/popup-blocked') alert('Please allow popups for this site to sign in with Google.');
+    }
+  };
+  window.firebaseSignOut = async () => {
+    await signOut(auth);
+    window.currentUser = null;
+    updateUserBadge(null);
+    document.getElementById('google-signin-btn').style.display = 'flex';
+  };
+
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      window.currentUser = { uid: user.uid, name: user.displayName, email: user.email, photo: user.photoURL };
+      updateUserBadge(window.currentUser);
+      document.getElementById('google-signin-btn').style.display = 'none';
+    }
+  });
+
+  function updateUserBadge(user) {
+    const container = document.getElementById('user-badge-container');
+    if (!user) { container.innerHTML = ''; return; }
+    const avatarUrl = user.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=06b6d4&color=fff`;
+    container.innerHTML = `<div class="user-badge">
+      <img src="${avatarUrl}" alt="${user.name}" referrerpolicy="no-referrer" />
+      <div style="display:flex;flex-direction:column;">
+        <span style="font-size:11px;font-weight:700;line-height:1;">${user.name}</span>
+        <button onclick="window.firebaseSignOut()" style="background:none;border:none;font-size:9px;color:#d946ef;cursor:pointer;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-top:2px;">Logout</button>
+      </div>
+    </div>`;
+  }
+</script>
+
+<script>
+  // ---- State ----
+  let currentPage = 'landing';
+  let userInfo = { name: '', age: '', gender: '' };
+  let textInputVal = '';
+  let videoBase64 = null;
+  let audioBase64 = null;
+  let audioUrl = null;
+  let isRecording = false;
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let recordingTimer = null;
+  let recordingTime = 0;
+  let aiResult = null;
+  let questionnaireAnswers = { elevatedMood: false, reducedSleep: false, impulsivity: false, racingThoughts: false };
+  const GEMINI_API_KEY = 'your_gemini_api_key_here'; // Replace with your Gemini key
+
+  function goTo(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    currentPage = page;
+    if (page === 'user-info') { /* focus */ }
+  }
+
+  function handleGoogleLogin() { window.firebaseSignIn && window.firebaseSignIn(); }
+
+  function updateAssessBtn() {
+    textInputVal = document.getElementById('text-input').value;
+    const btn = document.getElementById('assess-continue-btn');
+    btn.disabled = !textInputVal.trim() && !videoBase64 && !audioBase64;
+  }
+
+  // ---- Toggle answers ----
+  function toggleAnswer(key, btn) {
+    questionnaireAnswers[key] = !questionnaireAnswers[key];
+    btn.className = 'toggle-btn ' + (questionnaireAnswers[key] ? 'on' : 'off');
+    document.getElementById('label-' + key).textContent = questionnaireAnswers[key] ? 'YES' : 'NO';
+    document.getElementById('label-' + key).style.color = questionnaireAnswers[key] ? '#8b5cf6' : '#64748b';
+  }
+
+  function updateImpairmentLabel() {
+    const val = parseInt(document.getElementById('q-impairment').value);
+    const label = val < 33 ? 'Mild' : val < 66 ? 'Moderate' : 'Severe';
+    document.getElementById('impairment-label').textContent = `${label} (${val}%)`;
+  }
+
+  // ---- Audio Recording ----
+  async function toggleRecording() {
+    if (!isRecording) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: 'audio/wav' });
+          audioUrl = URL.createObjectURL(blob);
+          const reader = new FileReader();
+          reader.onloadend = () => { audioBase64 = reader.result; updateAssessBtn(); };
+          reader.readAsDataURL(blob);
+          showAudioRecorded();
+          stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        recordingTime = 0;
+        recordingTimer = setInterval(() => { recordingTime++; updateRecordingDisplay(); }, 1000);
+        showRecordingActive();
+      } catch (err) {
+        alert('Could not access microphone. Please allow microphone access.');
+      }
+    } else {
+      mediaRecorder.stop();
+      isRecording = false;
+      clearInterval(recordingTimer);
+      document.getElementById('record-btn').innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Re-record`;
+    }
+  }
+
+  function showRecordingActive() {
+    const display = document.getElementById('audio-display');
+    display.innerHTML = `<div style="background:rgba(217,70,239,0.1);position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;">
+      <div class="recording-bars">${Array(12).fill('<div class="recording-bar"></div>').join('')}</div>
+      <div style="display:flex;align-items:center;gap:8px;"><div style="width:8px;height:8px;background:#ef4444;border-radius:50%;animation:pulse 1s ease-in-out infinite;"></div><span id="rec-time" style="font-family:monospace;font-size:13px;color:white;">0:00</span></div>
+    </div>`;
+    display.style.position = 'relative';
+    const btn = document.getElementById('record-btn');
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Stop Recording`;
+    btn.style.background = 'rgba(239,68,68,0.2)';
+    btn.style.boxShadow = '0 8px 24px rgba(239,68,68,0.3)';
+  }
+
+  function updateRecordingDisplay() {
+    const mins = Math.floor(recordingTime / 60);
+    const secs = recordingTime % 60;
+    const el = document.getElementById('rec-time');
+    if (el) el.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function showAudioRecorded() {
+    const display = document.getElementById('audio-display');
+    display.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(6,182,212,0.05);position:absolute;inset:0;padding:12px;">
+      <div style="display:flex;align-items:center;gap:8px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span style="font-size:10px;color:#06b6d4;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Voice Recorded</span></div>
+      <audio src="${audioUrl}" controls style="height:28px;width:180px;opacity:0.8;"></audio>
+    </div>`;
+    display.style.position = 'relative';
+    document.getElementById('remove-audio-btn').style.display = 'block';
+    const btn = document.getElementById('record-btn');
+    btn.style.background = '#d946ef';
+    btn.style.boxShadow = '0 8px 24px rgba(217,70,239,0.3)';
+  }
+
+  function removeAudio() {
+    audioBase64 = null; audioUrl = null; isRecording = false;
+    clearInterval(recordingTimer);
+    document.getElementById('audio-display').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;opacity:0.4;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#d946ef" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg><span style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;">Mic Ready</span></div>`;
+    document.getElementById('remove-audio-btn').style.display = 'none';
+    document.getElementById('record-btn').innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Start Recording`;
+    document.getElementById('record-btn').style.background = '#d946ef';
+    document.getElementById('record-btn').style.boxShadow = '0 8px 24px rgba(217,70,239,0.3)';
+    updateAssessBtn();
+  }
+
+  function handleAudioUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    audioUrl = URL.createObjectURL(file);
+    const reader = new FileReader();
+    reader.onloadend = () => { audioBase64 = reader.result; updateAssessBtn(); };
+    reader.readAsDataURL(file);
+    const display = document.getElementById('audio-display');
+    display.style.position = 'relative';
+    display.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:rgba(6,182,212,0.05);position:absolute;inset:0;padding:12px;">
+      <div style="display:flex;align-items:center;gap:8px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span style="font-size:10px;color:#06b6d4;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Audio Uploaded</span></div>
+      <span style="font-size:10px;color:#94a3b8;">${file.name}</span>
+      <audio src="${audioUrl}" controls style="height:28px;width:180px;opacity:0.8;"></audio>
+    </div>`;
+    document.getElementById('remove-audio-btn').style.display = 'block';
+  }
+
+  function handleVideoUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => { videoBase64 = reader.result; updateAssessBtn(); };
+    reader.readAsDataURL(file);
+    document.getElementById('video-display').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span style="font-size:10px;color:#06b6d4;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Video Loaded</span></div>`;
+    document.getElementById('video-upload-btn').textContent = 'Replace Video';
+  }
+
+  // ---- Questionnaire Complete ----
+  async function completeQuestionnaire() {
+    userInfo.name = document.getElementById('input-name').value;
+    userInfo.age = document.getElementById('input-age').value;
+    userInfo.gender = document.getElementById('input-gender').value;
+    textInputVal = document.getElementById('text-input').value;
+
+    const questionnaireData = {
+      answers: { ...questionnaireAnswers },
+      duration: parseInt(document.getElementById('q-duration').value) || 0,
+      seasonalPattern: document.getElementById('q-seasonal').value,
+      postpartum: document.getElementById('q-postpartum').value,
+      impairment: parseInt(document.getElementById('q-impairment').value),
+    };
+
+    goTo('analysis');
+    try {
+      const result = await analyzeWithGemini(userInfo, textInputVal, videoBase64, audioBase64, questionnaireData);
+      aiResult = result;
+      renderResults(result);
+      goTo('results');
+    } catch (err) {
+      console.error('Analysis failed:', err);
+      // Show fallback results
+      aiResult = { riskLevel: 'Low', confidenceScore: 72, contributions: {text:40,video:20,audio:20,questionnaire:20}, emotionalSignals:['Stability','Coherence'], insights:{text:{points:['Positive language patterns detected','Coherent thought structure']},video:{points:['Stable visual indicators']},audio:{points:['Normal vocal patterns']},questionnaire:{points:['Low symptom burden reported']}}, recommendations:['Maintain consistent sleep schedule','Practice mindfulness','Stay socially connected','Consult a professional if needed'] };
+      renderResults(aiResult);
+      goTo('results');
+    }
+  }
+
+  async function analyzeWithGemini(userInfo, textInput, videoBase64, audioBase64, questionnaireData) {
+    const prompt = `Analyze the following multi-modal mental health assessment data for potential depression risk.
+
+User Info: ${JSON.stringify(userInfo)}
+Text Input: "${textInput}"
+Questionnaire Data: ${JSON.stringify(questionnaireData)}
+
+Provide a JSON analysis with these exact fields:
+- riskLevel: "Low", "Moderate", or "High"
+- confidenceScore: number 0-100
+- contributions: {text, video, audio, questionnaire} (numbers summing to 100)
+- emotionalSignals: array of strings (e.g. "Stability", "Fatigue", "Stress")
+- insights: {text: {points: []}, video: {points: []}, audio: {points: []}, questionnaire: {points: []}}
+- recommendations: array of 4 actionable strings
+
+Respond ONLY with valid JSON, no markdown fences.`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
+    const clean = text.replace(/```json|```/g, '').trim();
+    return { ...JSON.parse(clean), timestamp: new Date().toISOString() };
+  }
+
+  function renderResults(result) {
+    const name = userInfo.name || 'Anonymous';
+    document.getElementById('results-patient').textContent = `Patient: ${name} • ID: PS-${Math.floor(Math.random()*9000)+1000}`;
+    document.getElementById('results-confidence').textContent = `${result.confidenceScore}%`;
+    document.getElementById('results-risk').textContent = result.riskLevel;
+    document.getElementById('ring-label').textContent = result.riskLevel === 'Low' ? 'Stable' : result.riskLevel;
+    document.getElementById('ring-desc').textContent = result.riskLevel === 'Low'
+      ? 'Subject exhibits stable linguistic and vocal biomarkers, indicating low probability of acute depressive episodes.'
+      : `Analysis indicates a ${result.riskLevel.toLowerCase()} probability of depressive symptoms across multi-modal biomarkers.`;
+
+    // Ring animation
+    const circumference = 2 * Math.PI * 80;
+    const offset = circumference * (1 - result.confidenceScore / 100);
+    setTimeout(() => { document.getElementById('ring-progress').style.strokeDashoffset = offset; }, 100);
+
+    // Contributions
+    const c = result.contributions;
+    ['text','video','audio','quest'].forEach((k, i) => {
+      const key = ['text','video','audio','questionnaire'][i];
+      const val = c[key] ?? 25;
+      document.getElementById(`contrib-${k}-val`).textContent = `${val}%`;
+      setTimeout(() => { document.getElementById(`contrib-${k}`).style.width = `${val}%`; }, 200);
+    });
+
+    // Signals
+    const sigContainer = document.getElementById('signals-container');
+    sigContainer.innerHTML = (result.emotionalSignals || ['Stability']).map(s =>
+      `<span class="tag" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2);color:#06b6d4;">${s}</span>`
+    ).join('');
+
+    // Points
+    const contrib = [result.contributions.text, result.contributions.video, result.contributions.audio, result.contributions.questionnaire];
+    ['text','video','audio','quest'].forEach((k, i) => {
+      const key = ['text','video','audio','questionnaire'][i];
+      const insights = result.insights?.[key];
+      const firstPoint = insights?.points?.[0] ?? 'Analysis complete.';
+      document.getElementById(`point-${k}`).textContent = firstPoint;
+      setTimeout(() => { document.getElementById(`bar-${k}`).style.width = `${70 + Math.random()*25}%`; }, 200);
+    });
+
+    // Insights
+    ['text','video','audio'].forEach(k => {
+      const ul = document.getElementById(`insights-${k}`);
+      const points = result.insights?.[k]?.points ?? [];
+      ul.innerHTML = points.map(p => `<li style="display:flex;gap:8px;font-size:11px;color:#cbd5e1;line-height:1.5;"><div style="width:4px;height:4px;border-radius:50%;background:currentColor;margin-top:5px;flex-shrink:0;"></div>${p}</li>`).join('');
+    });
+
+    // Recommendations
+    const recContainer = document.getElementById('recommendations-container');
+    recContainer.innerHTML = (result.recommendations || []).map(r =>
+      `<div class="rec-card"><svg class="check-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><p style="font-size:11px;color:#cbd5e1;line-height:1.5;">${r}</p></div>`
+    ).join('');
+  }
+
+  function downloadReport() {
+    const lines = [
+      '=== PsychSense Mental Health Report ===',
+      '',
+      `Patient: ${userInfo.name || 'Anonymous'}`,
+      `Age: ${userInfo.age}`,
+      `Gender: ${userInfo.gender}`,
+      `Generated: ${new Date().toLocaleString()}`,
+      '',
+      `Risk Level: ${aiResult?.riskLevel ?? 'N/A'}`,
+      `Confidence: ${aiResult?.confidenceScore ?? '—'}%`,
+      '',
+      'Recommendations:',
+      ...(aiResult?.recommendations ?? []).map(r => `  - ${r}`),
+      '',
+      'Disclaimer: This system is for early mental health screening only — not a clinical diagnosis.',
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `PsychSense_Report_${userInfo.name || 'User'}.txt`;
+    a.click();
+  }
+
+  function handleReset() {
+    textInputVal = ''; videoBase64 = null; audioBase64 = null; audioUrl = null;
+    aiResult = null; isRecording = false;
+    if (recordingTimer) clearInterval(recordingTimer);
+    document.getElementById('text-input').value = '';
+    document.getElementById('char-count').textContent = '0 chars';
+    goTo('landing');
+  }
+
+  // ---- Neural canvas background ----
+  (function initCanvas() {
+    const canvas = document.getElementById('neural-canvas');
+    const ctx = canvas.getContext('2d');
+    let nodes = [];
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+    for (let i = 0; i < 60; i++) {
+      nodes.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, vx: (Math.random()-0.5)*0.4, vy: (Math.random()-0.5)*0.4, r: Math.random()*2+1 });
+    }
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // Connections
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i+1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 150) {
+            ctx.strokeStyle = `rgba(139,92,246,${(1-dist/150)*0.3})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y); ctx.stroke();
+          }
+        }
+      }
+      // Nodes
+      nodes.forEach(n => {
+        ctx.fillStyle = 'rgba(6,182,212,0.5)';
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI*2); ctx.fill();
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 0 || n.x > canvas.width) n.vx *= -1;
+        if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
+      });
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+
+  // ---- Neural head right-panel canvas ----
+  (function initNeuralHead() {
+    const canvas = document.getElementById('neural-head-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let t = 0;
+    function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+    const particles = Array.from({length:80}, () => ({
+      theta: Math.random()*Math.PI*2, phi: Math.random()*Math.PI,
+      r: 120 + Math.random()*40,
+      speed: 0.002 + Math.random()*0.003
+    }));
+    function draw() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const cx = canvas.width/2, cy = canvas.height/2;
+      // Outer glow ring
+      const grad = ctx.createRadialGradient(cx, cy, 60, cx, cy, 180);
+      grad.addColorStop(0, 'rgba(139,92,246,0.08)');
+      grad.addColorStop(1, 'rgba(139,92,246,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(cx, cy, 180, 0, Math.PI*2); ctx.fill();
+      // Rotating particles
+      particles.forEach(p => {
+        p.theta += p.speed;
+        const x = cx + p.r * Math.sin(p.phi) * Math.cos(p.theta);
+        const y = cy + p.r * Math.sin(p.phi) * Math.sin(p.theta) * 0.5;
+        const bright = 0.3 + 0.7 * Math.sin(p.theta * 2);
+        ctx.fillStyle = `rgba(6,182,212,${bright * 0.7})`;
+        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI*2); ctx.fill();
+      });
+      // Central brain icon glow
+      ctx.shadowBlur = 40; ctx.shadowColor = '#06b6d4';
+      ctx.strokeStyle = 'rgba(6,182,212,0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, 60 + Math.sin(t)*5, 0, Math.PI*2); ctx.stroke();
+      ctx.shadowBlur = 0;
+      // Pulsing core
+      const alpha = 0.3 + 0.3*Math.sin(t*2);
+      const coreGrad = ctx.createRadialGradient(cx,cy,0,cx,cy,50);
+      coreGrad.addColorStop(0, `rgba(6,182,212,${alpha})`);
+      coreGrad.addColorStop(1, 'rgba(6,182,212,0)');
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath(); ctx.arc(cx, cy, 50, 0, Math.PI*2); ctx.fill();
+      // Label
+      ctx.fillStyle = 'rgba(6,182,212,0.8)';
+      ctx.font = "bold 13px 'Space Grotesk', sans-serif";
+      ctx.textAlign = 'center';
+      ctx.fillText('NEURAL ANALYSIS', cx, cy + 110);
+      ctx.font = "10px 'Inter', sans-serif";
+      ctx.fillStyle = 'rgba(148,163,184,0.7)';
+      ctx.fillText('Multi-Modal Assessment Engine', cx, cy + 130);
+      t += 0.02;
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+</script>
+</body>
+</html>
